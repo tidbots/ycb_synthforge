@@ -179,7 +179,7 @@ python scripts/download_cctextures.py --search Marble --limit 30
 ## パイプライン実行
 
 ### 1. 合成データ生成
-
+scripts/blenderproc/config.yaml
 ```bash
 # バックグラウンドで生成（config.yamlのnum_images設定に従う）
 docker compose run -d blenderproc
