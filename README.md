@@ -1,18 +1,17 @@
 # YCB SynthForge
 
-BlenderProcによる合成データ生成と転移学習を組み合わせた、YCBオブジェクト検出のた
-めのYOLO26ファインチューニングパイプライン
+BlenderProcによる合成データ生成とYOLO26によるYCB物体検出パイプライン
 
 ## 概要
 
-YCB SynthForgeは、以下の機能を提供する統合パイプラインです：
+YCB SynthForgeは、103種類のYCBオブジェクトを検出するためのEnd-to-Endパイプラインです。
 
-- **合成データ生成**: BlenderProcを使用したフォトリアリスティックな学習データの>自動生成
-- **ドメインランダマイゼーション**: Sim-to-Realギャップを軽減する高度なランダム>化
-- **転移学習**: COCO事前学習済みYOLO26モデルのファインチューニング
-- **カスタムデータ対応**: 独自オブジェクトの追加が容易
+- **合成データ生成**: BlenderProcによるフォトリアリスティックなレンダリング
+- **ドメインランダム化**: Sim-to-Real転移のための多様なデータ生成
+- **YOLO26学習**: COCO事前学習モデルのファインチューニング
 
-## プロジェクト構造
+## プロジェクト構成
+
 ```
 ycb_synthforge/
 ├── docker/
@@ -27,6 +26,9 @@ ycb_synthforge/
 │   ├── yolo26n.pt                # YOLO26 Nano (2.6M params)
 │   └── yolo26s.pt                # YOLO26 Small
 ├── scripts/
+│   ├── download_weights.py       # YOLO26重みダウンロード
+│   ├── download_ycb_models.py    # YCB 3Dモデルダウンロード
+│   ├── download_cctextures.py    # CC0テクスチャダウンロード
 │   ├── blenderproc/              # データ生成スクリプト
 │   │   ├── generate_dataset.py   # メイン生成スクリプト
 │   │   ├── config.yaml           # 生成設定
@@ -76,6 +78,102 @@ docker compose build
 docker compose build blenderproc
 docker compose build yolo26_train
 ```
+
+### YOLO26重みのダウンロード
+
+```bash
+# 利用可能なモデル一覧を表示
+python scripts/download_weights.py --list
+
+# デフォルト (nano + small) をダウンロード
+python scripts/download_weights.py
+
+# 特定のモデルをダウンロード
+python scripts/download_weights.py --models yolo26n yolo26s yolo26m
+
+# 全モデルをダウンロード
+python scripts/download_weights.py --all
+
+# 強制的に再ダウンロード
+python scripts/download_weights.py --models yolo26m --force
+```
+
+| モデル | パラメータ数 | サイズ | 用途 |
+|--------|------------|--------|------|
+| yolo26n | 2.6M | ~5 MB | 最速・エッジデバイス向け |
+| yolo26s | 9.4M | ~19 MB | バランス型 |
+| yolo26m | 20.1M | ~40 MB | 推奨・汎用 |
+| yolo26l | 25.3M | ~49 MB | 高精度 |
+| yolo26x | 56.9M | ~109 MB | 最高精度 |
+
+### YCB 3Dモデルのダウンロード
+
+```bash
+# オブジェクト一覧を表示
+python scripts/download_ycb_models.py --list
+
+# カテゴリ一覧を表示
+python scripts/download_ycb_models.py --list-categories
+
+# 全103オブジェクトをダウンロード (~3GB)
+python scripts/download_ycb_models.py --all
+
+# カテゴリ指定でダウンロード
+python scripts/download_ycb_models.py --category food fruit kitchen
+
+# 特定オブジェクトのみダウンロード
+python scripts/download_ycb_models.py --objects 001_chips_can 002_master_chef_can
+
+# 強制的に再ダウンロード
+python scripts/download_ycb_models.py --all --force
+```
+
+| カテゴリ | オブジェクト数 | 内容 |
+|---------|--------------|------|
+| food | 10 | 缶詰、箱入り食品 |
+| fruit | 8 | バナナ、りんご、レモン等 |
+| kitchen | 14 | ボウル、マグ、フォーク等 |
+| tool | 17 | ドリル、ハンマー、ドライバー等 |
+| sport | 6 | ボール類 |
+| toy | 34 | レゴ、飛行機、サイコロ等 |
+| misc | 14 | カップ、タイマー等 |
+
+### CC0テクスチャのダウンロード
+
+[ambientCG](https://ambientcg.com/)からPBRテクスチャをダウンロード（CC0ライセンス）。
+
+```bash
+# カテゴリ一覧を表示
+python scripts/download_cctextures.py --list-categories
+
+# デフォルト100テクスチャをダウンロード
+python scripts/download_cctextures.py
+
+# カテゴリ指定でダウンロード
+python scripts/download_cctextures.py --category floor wall table
+
+# プレフィックス指定 (Wood*, Metal* 各20枚)
+python scripts/download_cctextures.py --prefix Wood Metal --limit 20
+
+# 特定テクスチャをダウンロード
+python scripts/download_cctextures.py --textures Wood001 Metal002 Tiles005
+
+# 高解像度でダウンロード (1K/2K/4K/8K)
+python scripts/download_cctextures.py --resolution 4K
+
+# オンラインで検索
+python scripts/download_cctextures.py --search Marble --limit 30
+```
+
+| カテゴリ | 用途 | プレフィックス |
+|---------|------|---------------|
+| floor | 床 | Wood, WoodFloor, Tiles, Marble, Concrete |
+| wall | 壁 | Bricks, PaintedPlaster, Wallpaper, Facade |
+| table | テーブル | Wood, Metal, Plastic, Marble, Granite |
+| metal | 金属 | Metal, MetalPlates, DiamondPlate, Rust |
+| fabric | 布 | Fabric, Leather, Carpet, Wicker |
+| natural | 自然 | Ground, Grass, Rock, Gravel, Sand |
+| industrial | 工業 | Asphalt, Concrete, CorrugatedSteel |
 
 ## パイプライン実行
 
@@ -197,8 +295,7 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 035_power_drill, 036_wood_block, 037_scissors, 038_padlock, 039_key, 040_large_marker, 041_small_marker, 042_adjustable_wrench, 043_phillips_screwdriver, 044_flat_screwdriver, 046_plastic_bolt, 047_plastic_nut, 048_hammer, 049-052_clamps
 
 ### スポーツ・おもちゃ (ID: 49-102)
-ボール類、チェーン、フォームブロック、サイコロ、ビー玉、カップ、木製ブロック、お
-もちゃの飛行機、レゴデュプロ、タイマー、ルービックキューブ
+ボール類、チェーン、フォームブロック、サイコロ、ビー玉、カップ、木製ブロック、おもちゃの飛行機、レゴデュプロ、タイマー、ルービックキューブ
 
 </details>
 
@@ -305,7 +402,7 @@ docker compose build yolo26_train --no-cache
 
 ### OBJファイルの警告
 
-`Invalid normal index`警告は無害。YCBモデルのメッシュ問題で、レンダリングに影響>なし。
+`Invalid normal index`警告は無害。YCBモデルのメッシュ問題で、レンダリングに影響なし。
 
 ## ライセンス
 
@@ -320,5 +417,3 @@ docker compose build yolo26_train --no-cache
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
 - [YCB Object Dataset](https://www.ycbbenchmarks.com/)
 - [ambientCG Textures](https://ambientcg.com/)
-
-

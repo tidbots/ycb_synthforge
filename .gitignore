@@ -1,3 +1,9 @@
+weights/
+models/
+resources/
+data/
+runs/
+logs/
 devel/
 logs/
 build/
