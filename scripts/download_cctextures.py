@@ -11,8 +11,11 @@ import os
 import sys
 import zipfile
 from pathlib import Path
-from urllib.request import urlretrieve, urlopen
+from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
+
+# User-Agent header to avoid 403 errors
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # ambientCG API endpoint
 API_URL = "https://ambientCG.com/api/v2/full_json"
@@ -121,7 +124,8 @@ def fetch_texture_list(include_filter: str = None, limit: int = None) -> list:
     url = f"{API_URL}?{query}"
 
     try:
-        with urlopen(url, timeout=30) as response:
+        request = Request(url, headers={"User-Agent": USER_AGENT})
+        with urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode())
             return data.get("foundAssets", [])
     except Exception as e:
@@ -173,8 +177,32 @@ def download_texture(
     print(f"    URL: {url}")
 
     try:
-        # Download
-        urlretrieve(url, zip_file, reporthook=download_progress)
+        # Download with User-Agent header
+        request = Request(url, headers={"User-Agent": USER_AGENT})
+        with urlopen(request, timeout=60) as response:
+            total_size = int(response.headers.get('Content-Length', 0))
+            downloaded = 0
+            chunk_size = 8192
+
+            with open(zip_file, 'wb') as f:
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    # Progress display
+                    if total_size > 0:
+                        percent = downloaded * 100 / total_size
+                        downloaded_mb = downloaded / (1024 * 1024)
+                        total_mb = total_size / (1024 * 1024)
+                        sys.stdout.write(f"\r    Downloading: {percent:5.1f}% ({downloaded_mb:.1f}/{total_mb:.1f} MB)")
+                    else:
+                        downloaded_mb = downloaded / (1024 * 1024)
+                        sys.stdout.write(f"\r    Downloading: {downloaded_mb:.1f} MB")
+                    sys.stdout.flush()
+
         print()  # New line after progress
 
         # Extract
