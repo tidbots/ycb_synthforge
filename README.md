@@ -4,7 +4,7 @@ BlenderProcによる合成データ生成とYOLO26によるYCB物体検出パイ
 
 ## 概要
 
-YCB SynthForgeは、78種類のYCBオブジェクトを検出するためのEnd-to-Endパイプラインです。
+YCB SynthForgeは、76種類のYCBオブジェクトを検出するためのEnd-to-Endパイプラインです。
 
 - **合成データ生成**: BlenderProcによるフォトリアリスティックなレンダリング
 - **ドメインランダム化**: Sim-to-Real転移のための多様なデータ生成
@@ -20,7 +20,7 @@ ycb_synthforge/
 │   └── Dockerfile.yolo26         # YOLO26学習環境
 ├── docker-compose.yml
 ├── models/
-│   └── ycb/                      # YCB 3Dモデル (78クラス, google_16k形式)
+│   └── ycb/                      # YCB 3Dモデル (76クラス, google_16k形式)
 ├── resources/
 │   └── cctextures/               # CC0テクスチャ (2022枚)
 ├── weights/
@@ -139,7 +139,7 @@ python scripts/download_ycb_models.py --all --format google_16k --force
 | google_512k | 512kポリゴン、最高解像度 | |
 | berkeley | poisson/tsdf形式（非推奨） | ❌ テクスチャ破損あり |
 
-**注意**: google_16k形式は103オブジェクト中78オブジェクトのみ利用可能です。
+**注意**: google_16k形式は103オブジェクト中78オブジェクトで利用可能ですが、メッシュ品質の問題により2オブジェクトを除外し、実際には76オブジェクトを使用します。
 
 ### CC0テクスチャのダウンロード
 
@@ -273,7 +273,7 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 | Val | 1,000 | 8.3% | ハイパーパラメータ調整 |
 | Test | 1,000 | 8.3% | 最終評価 |
 
-## YCBオブジェクトクラス (78種 - google_16k形式)
+## YCBオブジェクトクラス (76種 - google_16k形式)
 
 <details>
 <summary>利用可能なクラス一覧を表示</summary>
@@ -284,8 +284,8 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 ### 果物 (8個)
 011_banana, 012_strawberry, 013_apple, 014_lemon, 015_peach, 016_pear, 017_orange, 018_plum
 
-### キッチン用品 (11個)
-019_pitcher_base, 021_bleach_cleanser, 022_windex_bottle, 024_bowl, 025_mug, 026_sponge, 028_skillet_lid, 029_plate, 030_fork, 031_spoon, 032_knife
+### キッチン用品 (9個)
+021_bleach_cleanser, 024_bowl, 025_mug, 026_sponge, 028_skillet_lid, 029_plate, 030_fork, 031_spoon, 032_knife
 
 ### 工具 (12個)
 035_power_drill, 036_wood_block, 037_scissors, 038_padlock, 040_large_marker, 042_adjustable_wrench, 043_phillips_screwdriver, 044_flat_screwdriver, 048_hammer, 050_medium_clamp, 051_large_clamp, 052_extra_large_clamp
@@ -294,14 +294,19 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 053_mini_soccer_ball, 054_softball, 055_baseball, 056_tennis_ball, 057_racquetball, 058_golf_ball
 
 ### その他 (32個)
-059_chain, 061_foam_brick, 062_dice, 063-a_marbles, 063-b_marbles, 065-a〜j_cups, 070-a/b_colored_wood_blocks, 071_nine_hole_peg_test, 072-a〜e_toy_airplane, 073-a〜g_lego_duplo, 076_timer, 077_rubiks_cube
+059_chain, 061_foam_brick, 062_dice, 063-a_marbles, 063-b_marbles, 065-a〜j_cups, 070-a/b_colored_wood_blocks, 071_nine_hole_peg_test, 072-a〜e_toy_airplane, 073-a〜g_lego_duplo, 077_rubiks_cube
 
 </details>
 
-### 利用不可のオブジェクト (25個)
+### 除外オブジェクト
 
-google_16k形式が存在しないため除外:
-001_chips_can, 023_wine_glass, 027-skillet, 033_spatula, 039_key, 041_small_marker, 046_plastic_bolt, 047_plastic_nut, 049_small_clamp, 063-c〜f_marbles, 072-f〜k_toy_airplane, 073-h〜m_lego_duplo
+#### メッシュ品質問題により除外 (2個)
+以下のオブジェクトはgoogle_16k形式でもメッシュが歪んで表示されるため除外:
+- `019_pitcher_base` - メッシュが変形して表示される
+- `022_windex_bottle` - メッシュが潰れて表示される
+
+#### google_16k形式が存在しないため除外 (25個)
+001_chips_can, 023_wine_glass, 027-skillet, 033_spatula, 039_key, 041_small_marker, 046_plastic_bolt, 047_plastic_nut, 049_small_clamp, 063-c〜f_marbles, 072-f〜k_toy_airplane, 073-h〜m_lego_duplo, 076_timer
 
 ## 設定ファイル
 
@@ -329,7 +334,10 @@ lighting:
   ambient: [0.3, 0.7]
 
 placement:
-  use_physics: false            # 物理シミュレーション無効（オブジェクト固定）
+  position:
+    x_range: [-0.25, 0.25]      # グリッド配置の範囲
+    y_range: [-0.25, 0.25]
+  use_physics: false            # 物理シミュレーション無効（グリッド配置を使用）
 ```
 
 ### 学習設定 (`scripts/training/train_config.yaml`)
@@ -338,7 +346,7 @@ placement:
 model:
   architecture: yolo26n         # nano / small / medium
   weights: /workspace/weights/yolo26n.pt
-  num_classes: 78               # google_16k形式で利用可能なクラス数
+  num_classes: 76               # 利用可能なクラス数（除外オブジェクトを除く）
 
 training:
   epochs: 100
@@ -432,6 +440,21 @@ python scripts/download_ycb_models.py --all --format google_16k
 ```bash
 # google_16k形式で再ダウンロード
 python scripts/download_ycb_models.py --all --format google_16k --force
+```
+
+### 特定のオブジェクトのメッシュが歪む
+
+一部のオブジェクト（`019_pitcher_base`, `022_windex_bottle`）はgoogle_16k形式でもメッシュ品質に問題があります。これらは`generate_dataset.py`の`EXCLUDED_OBJECTS`で除外済みです。
+
+他のオブジェクトでも同様の問題が発生する場合は、除外リストに追加してください:
+
+```python
+# scripts/blenderproc/generate_dataset.py
+EXCLUDED_OBJECTS = {
+    "019_pitcher_base",
+    "022_windex_bottle",
+    "問題のあるオブジェクト名",  # 追加
+}
 ```
 
 ### docker-composeエラー
