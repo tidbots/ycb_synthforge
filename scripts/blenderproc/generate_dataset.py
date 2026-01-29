@@ -52,6 +52,7 @@ def setup_random_seeds(seed: int) -> None:
 
 # Objects to exclude due to mesh/texture issues
 EXCLUDED_OBJECTS = {
+    "019_pitcher_base",   # Mesh appears deformed/crumpled
     "022_windex_bottle",  # Mesh appears deformed/crumpled
 }
 
