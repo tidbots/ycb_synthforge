@@ -204,7 +204,7 @@ docker logs --tail 30 <container_id>
 
 ![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/scene_000009.png)
 ![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/scene_000013.png)
-![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/scene_000009.png)
+![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/scene_000029.png)
 
 ### 2. COCO→YOLO形式変換
 
