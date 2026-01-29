@@ -15,7 +15,7 @@ scene:
 
 # Camera settings
 camera:
-  distance: [0.4, 2.0]  # Distance from scene center (meters)
+  distance: [0.3, 0.8]  # Distance from scene center (meters) - closer for larger objects
   elevation: [10, 70]  # Camera elevation angle (degrees)
   azimuth: [0, 360]  # Camera azimuth angle (degrees)
   # Camera effects
