@@ -1,8 +1,11 @@
-weights/
-models/
-resources/
 data/
+fig/
+models/
+outputs/
+resources/
 runs/
+weights/
+yolo_dataset
 logs/
 devel/
 logs/

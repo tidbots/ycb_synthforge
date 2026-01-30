@@ -9,7 +9,7 @@ output:
 
 # Scene settings
 scene:
-  num_images: 12000  # Total images to generate (10k train, 1k val, 1k test)
+  num_images: 30000  # Total images to generate (25k train, 2.5k val, 2.5k test)
   objects_per_scene: [2, 8]  # Min-max YCB objects per scene
   clutter_per_scene: [3, 15]  # Min-max clutter objects
 
