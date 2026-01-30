@@ -55,8 +55,17 @@ ycb_synthforge/
 │           ├── images/{train,val,test}/
 │           ├── labels/{train,val,test}/
 │           └── dataset.yaml
-├── runs/                         # 学習結果
-│   └── */weights/{best,last}.pt
+├── outputs/                      # 出力ディレクトリ
+│   ├── trained_models/           # 学習済みモデル
+│   │   └── ycb_yolo26_run/
+│   │       ├── weights/          # best.pt, last.pt
+│   │       └── results.csv       # 学習メトリクス
+│   └── inference_results/        # 推論結果
+│       └── predictions/          # 認識結果画像
+├── yolo_dataset/                 # YOLO形式データセット
+│   ├── images/{train,val}/
+│   ├── labels/{train,val}/
+│   └── dataset.yaml
 └── logs/                         # ログファイル
 ```
 
@@ -222,28 +231,68 @@ docker compose run --rm yolo26_train python \
 ### 3. YOLO26学習
 
 ```bash
-docker compose run --rm yolo26_train python \
-  scripts/training/train_yolo26.py \
-  --config scripts/training/train_config.yaml
+# YOLO26m (Medium) モデルで学習
+docker compose run --rm \
+  -v $(pwd)/yolo_dataset:/workspace/yolo_dataset:ro \
+  yolo26_train python3 /workspace/scripts/training/train_yolo26.py \
+  --data /workspace/yolo_dataset/dataset.yaml \
+  --weights /workspace/weights/yolo26m.pt \
+  --epochs 50 \
+  --batch 16 \
+  --imgsz 640 \
+  --project /workspace/outputs/trained_models \
+  --name ycb_yolo26_run \
+  --device 0 \
+  --workers 8
 ```
+
+#### 学習結果の例 (YOLO26m, 50エポック)
+
+| メトリクス | 値 |
+|-----------|-----|
+| **mAP50** | 97.52% |
+| **mAP50-95** | 95.30% |
+| **Precision** | 97.32% |
+| **Recall** | 94.43% |
+| 学習時間 | 約59分 (RTX 4090) |
+
+学習済み重みは `outputs/trained_models/ycb_yolo26_run/weights/` に保存されます:
+- `best.pt` - 最高精度のモデル（推論用に推奨）
+- `last.pt` - 最終エポックのモデル
 
 ### 4. 評価
 
 ```bash
 docker compose run --rm yolo26_train python \
   scripts/training/evaluate.py \
-  --weights runs/ycb_yolo26/weights/best.pt \
-  --data data/synthetic/yolo/dataset.yaml
+  --weights outputs/trained_models/ycb_yolo26_run/weights/best.pt \
+  --data yolo_dataset/dataset.yaml
 ```
 
 ### 5. 推論
 
 ```bash
-docker compose run --rm yolo26_inference python \
-  scripts/training/inference.py \
-  --weights runs/ycb_yolo26/weights/best.pt \
-  --source /path/to/images
+# 検証画像に対して推論を実行
+docker compose run --rm \
+  -v $(pwd)/yolo_dataset:/workspace/yolo_dataset:ro \
+  yolo26_inference python3 /workspace/scripts/evaluation/inference.py \
+  --model /workspace/outputs/trained_models/ycb_yolo26_run/weights/best.pt \
+  --source /workspace/yolo_dataset/images/val \
+  --output /workspace/outputs/inference_results \
+  --conf 0.5 \
+  --device 0
 ```
+
+推論結果は `outputs/inference_results/predictions/` に保存されます:
+- `*.jpg` - バウンディングボックス付きの認識結果画像
+- `labels/` - YOLO形式のラベルファイル
+- `results.json` - 全検出結果のJSON
+
+#### 認識結果のサンプル
+
+![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/inference_sample1.jpg)
+![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/inference_sample2.jpg)
+![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/inference_sample3.jpg)
 
 ## ドメインランダム化
 
@@ -372,19 +421,27 @@ augmentation:
 
 ## 出力ファイル
 
-### 学習結果 (`runs/`)
+### 学習結果 (`outputs/trained_models/`)
 
 ```
-runs/ycb_yolo26/
+outputs/trained_models/ycb_yolo26_run/
 ├── weights/
-│   ├── best.pt              # ベストモデル (mAP基準)
-│   └── last.pt              # 最終エポックモデル
+│   ├── best.pt              # ベストモデル (mAP基準) - 推論用に推奨
+│   ├── last.pt              # 最終エポックモデル
+│   └── epoch*.pt            # チェックポイント (10エポックごと)
+├── args.yaml                # 学習パラメータ
 ├── results.csv              # エポックごとのメトリクス
-├── results.png              # 学習曲線グラフ
-├── confusion_matrix.png     # 混同行列
 ├── labels.jpg               # ラベル分布
-├── train_batch*.jpg         # 訓練バッチサンプル
-└── val_batch*_pred.jpg      # 検証予測結果
+└── train_batch*.jpg         # 訓練バッチサンプル
+```
+
+### 推論結果 (`outputs/inference_results/`)
+
+```
+outputs/inference_results/predictions/
+├── *.jpg                    # バウンディングボックス付き認識結果画像
+├── labels/                  # YOLO形式のラベルファイル
+└── results.json             # 全検出結果 (JSON)
 ```
 
 ## 生成時間の目安
