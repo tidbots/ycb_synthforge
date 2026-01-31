@@ -84,6 +84,19 @@ services:
     stdin_open: true
     tty: true
 
+  thumbnail_all_formats:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.blenderproc
+    volumes:
+      - ./models:/workspace/models:ro
+      - ./scripts:/workspace/scripts:ro
+      - ./data:/workspace/data
+    command: ["blenderproc", "run", "/workspace/scripts/generate_thumbnails_all_formats.py", "--ycb-dir", "/workspace/models/ycb", "--output", "/workspace/data/thumbnails_all_formats", "--comparison-grid"]
+    shm_size: '8gb'
+    stdin_open: true
+    tty: true
+
   fix_tsdf_materials:
     build:
       context: .
@@ -92,5 +105,27 @@ services:
       - ./models:/workspace/models
       - ./scripts:/workspace/scripts:ro
     command: ["python3", "/workspace/scripts/fix_tsdf_materials.py", "--ycb-dir", "/workspace/models/ycb"]
+    stdin_open: true
+    tty: true
+
+  ensemble_inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.yolo26
+    volumes:
+      - ./weights:/workspace/weights:ro
+      - ./outputs:/workspace/outputs
+      - ./scripts:/workspace/scripts:ro
+      - ./data:/workspace/data:ro
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    shm_size: '8gb'
     stdin_open: true
     tty: true

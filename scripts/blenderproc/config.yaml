@@ -20,7 +20,7 @@ camera:
   azimuth: [0, 360]  # Camera azimuth angle (degrees)
   # Camera effects
   exposure:
-    ev_range: [-1.5, 1.5]
+    ev_range: [-0.5, 1.5]
   noise:
     iso_values: [100, 200, 400, 800, 1600, 3200]
   white_balance:
@@ -37,12 +37,12 @@ camera:
 
 # Lighting settings
 lighting:
-  num_lights: [2, 5]
+  num_lights: [3, 5]  # Minimum 3 lights for better coverage
   color_temperature: [2700, 6500]  # Kelvin
-  intensity: [500, 2000]  # Watts equivalent - increased for brighter scenes
+  intensity: [800, 2000]  # Watts equivalent - increased minimum for brighter scenes
   elevation: [30, 90]  # degrees
   azimuth: [0, 360]  # degrees
-  ambient: [0.3, 0.7]  # Increased ambient for better visibility
+  ambient: [0.4, 0.7]  # Increased ambient for better visibility
   shadow_softness: [0.3, 0.9]
   use_hdri: false  # Disabled - no HDRI files available
   hdri_rotation: [0, 360]
@@ -130,7 +130,7 @@ paths:
   hdri: "/workspace/resources/hdri"  # Optional
 
 # Random seed for reproducibility
-seed: 42
+seed: 123
 
 # Domain randomization levels
 # Level 1: Basic (lighting, camera exposure, object pose)

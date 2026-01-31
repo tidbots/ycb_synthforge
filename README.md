@@ -32,7 +32,8 @@ ycb_synthforge/
 │   ├── download_cctextures.py    # CC0テクスチャダウンロード
 │   ├── fix_tsdf_materials.py     # tsdf形式のマテリアル修正
 │   ├── validate_meshes.py        # メッシュ品質検証
-│   ├── generate_thumbnails.py    # サムネイル生成
+│   ├── generate_thumbnails.py    # サムネイル生成 (google_16k/tsdf比較)
+│   ├── generate_thumbnails_all_formats.py  # 全形式サムネイル比較
 │   ├── blenderproc/              # データ生成スクリプト
 │   │   ├── generate_dataset.py   # メイン生成スクリプト
 │   │   ├── config.yaml           # 生成設定
@@ -43,12 +44,18 @@ ycb_synthforge/
 │   │   └── ycb_classes.py        # 103クラス定義
 │   ├── data_processing/
 │   │   ├── coco_to_yolo.py       # COCO→YOLO変換 (train/val/test分割)
-│   │   └── merge_datasets.py     # データセット結合
-│   └── training/
-│       ├── train_yolo26.py       # 学習スクリプト
-│       ├── train_config.yaml     # 学習設定
-│       ├── evaluate.py           # 評価スクリプト
-│       └── inference.py          # 推論スクリプト
+│   │   ├── merge_datasets.py     # データセット結合
+│   │   ├── create_subset.py      # サブセット作成（追加学習用）
+│   │   └── merge_for_incremental.py  # データセット統合（追加学習用）
+│   ├── training/
+│   │   ├── train_yolo26.py       # 学習スクリプト
+│   │   ├── train_incremental.py  # 追加学習スクリプト
+│   │   ├── train_config.yaml     # 学習設定
+│   │   └── evaluate.py           # 評価スクリプト
+│   └── inference/
+│       ├── inference.py          # 推論スクリプト
+│       ├── ensemble_inference.py # アンサンブル推論
+│       └── ensemble_example.py   # アンサンブル使用例
 ├── data/
 │   └── synthetic/
 │       ├── coco/                 # 生成データ (COCO形式)
@@ -224,7 +231,7 @@ docker logs -f <container_id>
 docker logs --tail 30 <container_id>
 ```
 
-生成枚数は `scripts/blenderproc/config.yaml` の `scene.num_images` で設定（デフォルト: 12,000枚）。
+生成枚数は `scripts/blenderproc/config.yaml` の `scene.num_images` で設定（デフォルト: 30,000枚）。
 
 
 ![](https://github.com/tidbots/ycb_synthforge/blob/main/fig/scene_000009.png)
@@ -356,6 +363,20 @@ docker compose run --rm thumbnail_generator
 - `data/thumbnails/*.png` - 個別サムネイル
 - `data/thumbnails/comparison_grid.png` - 比較グリッド
 
+### 全形式サムネイル比較
+
+全オブジェクトの4形式（clouds/google_16k/poisson/tsdf）を比較:
+
+```bash
+docker compose run --rm thumbnail_all_formats
+```
+
+結果:
+- `data/thumbnails_all_formats/*.png` - 個別サムネイル
+- `data/thumbnails_all_formats/comparison_grid_all.png` - 全形式比較グリッド
+
+**注意**: clouds形式（点群）とpoisson形式はテクスチャをサポートしていないため、グレーで表示されます。
+
 ### tsdfマテリアル修正
 
 tsdf形式のOBJファイルにマテリアル参照を追加:
@@ -373,9 +394,9 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 | **背景** | 床テクスチャ | Wood, Concrete, Tiles, Marble, Metal, Fabric |
 | | 壁テクスチャ | Concrete, Plaster, Brick, Paint, Wallpaper |
 | | テーブル材質 | Wood, Metal, Plastic |
-| **照明** | 光源数 | 1-4個 |
+| **照明** | 光源数 | 3-5個 |
 | | 色温度 | 2700K-6500K |
-| | 強度 | 100-1000W相当 |
+| | 強度 | 800-2000W相当 |
 | | 影の柔らかさ | 0.3-0.9 |
 | **カメラ** | 距離 | 0.4-2.0m |
 | | 仰角 | 10-70° |
@@ -394,9 +415,9 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 
 | Split | 枚数 | 割合 | 用途 |
 |-------|------|------|------|
-| Train | 10,000 | 83.3% | モデル学習 |
-| Val | 1,000 | 8.3% | ハイパーパラメータ調整 |
-| Test | 1,000 | 8.3% | 最終評価 |
+| Train | 25,000 | 83.3% | モデル学習 |
+| Val | 2,500 | 8.3% | ハイパーパラメータ調整 |
+| Test | 2,500 | 8.3% | 最終評価 |
 
 ## YCBオブジェクトクラス (85種)
 
@@ -452,7 +473,7 @@ Sim-to-Realギャップを軽減するため、以下の要素をランダム化
 
 ```yaml
 scene:
-  num_images: 12000
+  num_images: 30000
   objects_per_scene: [2, 8]    # シーンあたりのYCBオブジェクト数
 
 rendering:
@@ -467,9 +488,9 @@ camera:
   azimuth: [0, 360]
 
 lighting:
-  num_lights: [2, 5]
-  intensity: [500, 2000]        # 明るめの照明
-  ambient: [0.3, 0.7]
+  num_lights: [3, 5]            # 最低3つのライトで十分な照明を確保
+  intensity: [800, 2000]        # 明るめの照明（暗すぎるシーンを防止）
+  ambient: [0.4, 0.7]           # 環境光も強めに設定
 
 placement:
   position:
@@ -529,10 +550,137 @@ outputs/inference_results/predictions/
 
 ## 生成時間の目安
 
-| 設定 | samples | 速度 | 12,000枚の所要時間 |
+| 設定 | samples | 速度 | 30,000枚の所要時間 |
 |-----|---------|------|-------------------|
-| 高速 | 32 | ~45枚/分 | ~4.5時間 |
-| 高品質 | 128 | ~10枚/分 | ~20時間 |
+| 高速 | 32 | ~45枚/分 | ~11時間 |
+| 高品質 | 128 | ~10枚/分 | ~50時間 |
+
+## 追加学習（Incremental Learning）
+
+学習済みモデルに新しいオブジェクトを追加する方法です。全データを再学習せずに効率的に拡張できます。
+
+### 手法の比較
+
+| 手法 | 学習時間 | 精度維持 | 実装難易度 |
+|------|---------|---------|-----------|
+| 全データ再学習 | 長い | 高い | 簡単 |
+| リプレイ (サブセット) | 短い | やや低下 | 簡単 |
+| Backbone凍結 | 短い | やや低下 | 簡単 |
+| 知識蒸留 | 中程度 | 高い | やや複雑 |
+
+### ステップ1: サブセット作成
+
+元データから代表的なサンプルを抽出（クラス均等サンプリング）:
+
+```bash
+docker compose run --rm yolo26_train python \
+  scripts/data_processing/create_subset.py \
+  --source /workspace/yolo_dataset \
+  --output /workspace/data/ycb_subset \
+  --num_samples 5000 \
+  --val_samples 500
+```
+
+### ステップ2: データ統合
+
+サブセットと新しいオブジェクトのデータを統合:
+
+```bash
+docker compose run --rm yolo26_train python \
+  scripts/data_processing/merge_for_incremental.py \
+  --base /workspace/data/ycb_subset \
+  --new /workspace/data/new_objects \
+  --output /workspace/data/merged_dataset
+```
+
+### ステップ3: Backbone凍結で追加学習
+
+```bash
+docker compose run --rm yolo26_train python \
+  scripts/training/train_incremental.py \
+  --weights /workspace/outputs/trained_models/ycb_yolo26_run/weights/best.pt \
+  --data /workspace/data/merged_dataset/dataset.yaml \
+  --freeze 10 \
+  --epochs 30 \
+  --lr0 0.001
+```
+
+### パラメータ比較
+
+| パラメータ | 通常学習 | 追加学習 |
+|-----------|---------|---------|
+| データ量 | 30,000枚 | 5,500枚 |
+| freeze | 0 | 10 |
+| lr0 | 0.01 | 0.001 |
+| epochs | 50-100 | 30-50 |
+| **推定時間** | ~1時間 | ~15分 |
+
+## アンサンブル推論
+
+複数のモデルを組み合わせて推論する方法です。モデルを追加・削除する際に再学習が不要です。
+
+### 手法の比較
+
+| 項目 | 追加学習 | アンサンブル推論 |
+|------|---------|-----------------|
+| 推論速度 | 速い（1モデル） | 遅い（N回推論） |
+| メモリ | 少ない | 多い（N倍） |
+| 精度維持 | 忘却リスクあり | 各モデル維持 |
+| 柔軟性 | 再学習が必要 | モデル追加/削除が容易 |
+
+### 画像推論
+
+```bash
+docker compose run --rm ensemble_inference python \
+  scripts/inference/ensemble_inference.py \
+  --models weights/yolo26n.pt outputs/ycb_best.pt \
+  --source data/test_images/ \
+  --output outputs/ensemble_results \
+  --show-model
+```
+
+### リアルタイム推論（Webカメラ）
+
+```bash
+docker compose run --rm ensemble_inference python \
+  scripts/inference/ensemble_inference.py \
+  --models weights/yolo26n.pt outputs/ycb_best.pt \
+  --source 0 \
+  --realtime
+```
+
+### Pythonコードでの使用
+
+```python
+from ensemble_inference import EnsembleDetector
+
+# 複数モデルを初期化
+detector = EnsembleDetector(
+    model_paths=[
+        'yolo26n.pt',      # COCO 80クラス (ID: 0-79)
+        'ycb_best.pt',     # YCB 85クラス  (ID: 80-164)
+        'custom.pt',       # カスタム     (ID: 165+)
+    ],
+    conf_threshold=0.3,
+    iou_threshold=0.5,
+)
+
+# 推論
+detections = detector.predict(image)
+
+# 結果を描画
+result = detector.draw_detections(image, detections, show_model=True)
+```
+
+### 推奨ケース
+
+| ケース | 推奨手法 |
+|--------|---------|
+| リアルタイム検出が必要 | 追加学習 |
+| 精度が最優先 | アンサンブル |
+| モデルを頻繁に更新 | アンサンブル |
+| エッジデバイス | 追加学習 |
+| GPU複数台あり | アンサンブル（並列実行可） |
 
 ## トラブルシューティング
 
