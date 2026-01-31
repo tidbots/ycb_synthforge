@@ -515,6 +515,63 @@ mkdir -p models/tidbots/my_object/google_16k
 cp /tmp/mymodel/output/* models/tidbots/my_object/google_16k/
 ```
 
+### モデルのスケール確認・修正
+
+ダウンロードした3Dモデルはスケールがバラバラなことが多いです。生成画像にオブジェクトが表示されない場合、スケールを確認してください。
+
+**スケール確認:**
+```bash
+python3 << 'EOF'
+from pathlib import Path
+
+def get_obj_size(obj_path):
+    min_c, max_c = [float('inf')]*3, [float('-inf')]*3
+    with open(obj_path) as f:
+        for line in f:
+            if line.startswith('v '):
+                parts = line.split()
+                for i in range(3):
+                    v = float(parts[i+1])
+                    min_c[i], max_c[i] = min(min_c[i], v), max(max_c[i], v)
+    return [max_c[i] - min_c[i] for i in range(3)]
+
+for obj in Path('models/tidbots').glob('*/google_16k/textured.obj'):
+    size = get_obj_size(obj)
+    print(f"{obj.parent.parent.name}: {size[0]*100:.1f} x {size[1]*100:.1f} x {size[2]*100:.1f} cm")
+EOF
+```
+
+**スケール修正（例: 0.03倍に縮小）:**
+```bash
+python3 << 'EOF'
+from pathlib import Path
+import shutil
+
+def scale_obj(obj_path, scale):
+    shutil.copy(obj_path, str(obj_path) + '.backup')
+    lines = []
+    with open(obj_path) as f:
+        for line in f:
+            if line.startswith('v '):
+                p = line.split()
+                lines.append(f"v {float(p[1])*scale:.6f} {float(p[2])*scale:.6f} {float(p[3])*scale:.6f}\n")
+            else:
+                lines.append(line)
+    with open(obj_path, 'w') as f:
+        f.writelines(lines)
+
+# 例: coke_zeroを0.03倍に縮小
+scale_obj(Path('models/tidbots/coke_zero/google_16k/textured.obj'), 0.03)
+EOF
+```
+
+**適切なサイズの目安:**
+| オブジェクト | 実際のサイズ |
+|-------------|-------------|
+| 缶（350ml） | 6-7 × 12-13 cm |
+| ペットボトル | 6-8 × 20-25 cm |
+| りんご | 7-8 × 7-8 cm |
+
 ### カスタムモデルのみで学習
 
 YCBを使わず、独自モデルのみで学習する場合:
